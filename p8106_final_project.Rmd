@@ -1,5 +1,5 @@
 ---
-title: 'P8106 Final Project: Predicting COVID-19 Recovery Time and Identifying Important Risk Factors'
+title: 'P8106 Final Project: Predicting COVID-19 Recovery Time and Identifying Significant Risk Factors'
 author: "Runze Cui (rc3521), Yuchen Hua (yh3555), Hongpu Min (hm2946)"
 date: "2023-05-01"
 output: 
@@ -19,10 +19,19 @@ editor_options:
 
 \newpage
 
-
+```{r package, include=F}
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(mgcv)
+library(earth)
+library(AppliedPredictiveModeling)
+library(vip)
+library(patchwork)
+```
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, message = FALSE, warning = FALSE, dpi = 300, fig.width = 7)
 ```
 
