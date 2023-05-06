@@ -1,0 +1,28 @@
+---
+title: 'P8106 Final Project: Predicting COVID-19 Recovery Time and Identifying Important Risk Factors'
+author: "Runze Cui (rc3521), Yuchen Hua (yh3555), Hongpu Min (hm2946)"
+date: "2023-05-01"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+  header-includes:
+   -\usepackage{fancyhdr}
+   -\usepackage{lipsum}
+   -\pagestyle{fancy}
+   -\fancyhead[R]{\thepage}
+   -\fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+\newpage
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
