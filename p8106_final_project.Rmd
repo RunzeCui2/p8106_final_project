@@ -19,6 +19,11 @@ editor_options:
 
 \newpage
 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, message = FALSE, warning = FALSE, dpi = 300, fig.width = 7)
+```
+
 ```{r package, include=F}
 library(tidyverse)
 library(ggplot2)
@@ -31,7 +36,62 @@ library(patchwork)
 ```
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, message = FALSE, warning = FALSE, dpi = 300, fig.width = 7)
+# Background: 
+
+Check the report.
+
+# Data: 
+
+Description check the report. 
+
+```{r}
+# Dataset Loading
+load("data/recovery.Rdata")
+
+set.seed(3521) # Runze Cui's uni(2183): 
+# Create a first random sample of 2000 participants: 
+dat1 <- dat[sample(1:10000, 2000),] 
+
+set.seed(3555) # Yuchen Hua's uni(3555)
+# Create a second random sample of 2000 participants: 
+dat2 <- dat[sample(1:10000, 2000),] 
+
+# Merged the two datasets and remove repeated observations: 
+dat <- unique(rbind(dat1, dat2))
+
+# Get rid of the id variable from the merged dataset and do the data cleaning: 
+dat = dat %>% 
+  select(-id) %>% 
+  mutate(gender = as.factor(gender)) %>% 
+  mutate(race = as.factor(race)) %>% 
+  mutate(smoking = as.factor(smoking)) %>% 
+  mutate(hypertension = as.factor(hypertension)) %>% 
+  mutate(diabetes = as.factor(diabetes)) %>% 
+  mutate(vaccine = as.factor(vaccine)) %>% 
+  mutate(severity = as.factor(severity)) %>% 
+  mutate(study = as.factor(study)) %>% 
+  na.omit() %>% 
+  relocate(recovery_time)
+
+head(dat)
+
+# Separate the data as training and test data: 
+set.seed(3521)
+# Specify rows of training data: 
+trRows <- createDataPartition(dat$recovery_time, p = 0.7, list = FALSE)
+
+# training data
+training <- dat[trRows, ]
+## matrix of predictors
+x <- model.matrix(recovery_time~.,dat)[trRows,-1]
+## vector of response
+y <- dat$recovery_time[trRows]
+
+# test data
+test <- dat[-trRows, ]
+## matrix of predictors
+x2 <- model.matrix(recovery_time~.,dat)[-trRows,-1]
+## vector of response
+y2 <- dat$recovery_time[-trRows]
 ```
 
