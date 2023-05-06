@@ -293,6 +293,6 @@ study_plot_sec = dat2 %>%
 
 Note: red is 0 and blue is 1. 
 
-# 1. Primary Analysis
+# Primary Analysis
 
 Recovery time as continuous variable. 
