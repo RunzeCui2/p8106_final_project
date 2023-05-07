@@ -1,0 +1,250 @@
+---
+title: "hongpu"
+author: "min"
+date: "2023-05-07"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(caret)
+library(rpart.plot)
+library(party)
+library(pROC)
+library(ranger)
+library(pdp)
+```
+
+```{r}
+load("data/recovery.Rdata")
+
+set.seed(3521) # Runze Cui's uni(2183): 
+# Create a first random sample of 2000 participants: 
+dat1 <- dat[sample(1:10000, 2000),] 
+
+set.seed(3555) # Yuchen Hua's uni(3555)
+# Create a second random sample of 2000 participants: 
+dat2 <- dat[sample(1:10000, 2000),] 
+
+# Merged the two datasets and remove repeated observations: 
+dat <- unique(rbind(dat1, dat2))
+
+# Get rid of the id variable from the merged dataset and do the data cleaning: 
+dat <- dat %>% 
+  select(-id) %>% 
+  mutate(gender = as.factor(gender)) %>% 
+  mutate(race = as.factor(race)) %>% 
+  mutate(smoking = as.factor(smoking)) %>% 
+  mutate(hypertension = as.factor(hypertension)) %>% 
+  mutate(diabetes = as.factor(diabetes)) %>% 
+  mutate(vaccine = as.factor(vaccine)) %>% 
+  mutate(severity = as.factor(severity)) %>% 
+  mutate(study = as.factor(study)) %>% 
+  na.omit() %>% 
+  relocate(recovery_time)
+
+# Separate the data as training and test data: 
+set.seed(3521)
+# Specify rows of training data: 
+trRows <- createDataPartition(dat$recovery_time, p = 0.7, list = FALSE)
+
+# For secondary analysis: 
+dat_2 <-  dat %>%
+  mutate(recovery_time = ifelse(recovery_time > 30, "great", "less")) %>%
+  mutate(recovery_time = as.factor(recovery_time))
+
+# Training data:
+training_sec <- dat_2[trRows, ]
+## Covariates' matrix:
+x_sec <- model.matrix(recovery_time ~ ., dat_2)[trRows, -1]
+## Response's vector:
+y_sec <- dat_2$recovery_time[trRows]
+
+# Test data:
+test_sec <- dat_2[-trRows, ]
+## Covariates' matrix:
+x2_sec <- model.matrix(recovery_time ~ ., dat_2)[-trRows, -1]
+## Response's vector:
+y2_sec <- dat_2$recovery_time[-trRows]
+
+ctrl1 = trainControl(method = "repeatedcv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+
+ctrl = trainControl(method = "repeatedcv", number = 10, repeats = 5)
+```
+
+#### classfication trees using rpart method
+
+```{r}
+set.seed(1)
+
+rpart.fit = train(recovery_time ~ . ,
+                  dat_2,
+                  subset = trRows,
+                  method = "rpart",
+                  tuneGrid = data.frame(cp = exp(seq(-6, -2, length = 50))),
+                  trControl = ctrl1,
+                  metric = "ROC")
+
+ggplot(rpart.fit, highlight = TRUE)
+```
+
+```{r}
+rpart.plot(rpart.fit$finalModel)
+```
+
+#### classfication trees using ctree method
+
+```{r}
+set.seed(1)
+
+ctree.fit = train(recovery_time ~ . ,
+                  dat_2,
+                  subset = trRows,
+                  method = "ctree",
+                  tuneGrid = data.frame(mincriterion = 1 - exp(seq(-2, -1, length = 50))),
+                  trControl = ctrl1,
+                  metric = "ROC")
+
+ggplot(ctree.fit, highlight = TRUE)
+```
+
+```{r}
+plot(ctree.fit$finalModel)
+```
+
+*compare*
+```{r}
+rpart.pred = predict(rpart.fit, newdata = test_sec, type = "prob")[,1]
+ctree.pred = predict(ctree.fit, newdata = test_sec, type = "prob")[,1]
+
+roc.rpart = roc(y2_sec, rpart.pred)
+roc.ctree = roc(y2_sec, ctree.pred)
+
+auc = c(roc.rpart$auc[1],roc.ctree$auc[1])
+
+plot(roc.rpart, legacy.axes = TRUE)
+plot(roc.ctree, col = 2, add = TRUE)
+
+modelNames = c("rpart","ctree")
+legend("bottomright", legend = paste0(modelNames, ": ", round(auc,3)), col = 1:2, lwd = 2)
+```
+
+#### Random forests
+
+```{r}
+rf.grid = expand.grid(mtry = 1:8,
+                      splitrule = "gini",
+                      min.node.size = seq(from = 2, to = 10, by = 2))
+
+set.seed(1)
+
+rf.fit = train(recovery_time ~ . ,
+               dat_2,
+               subset = trRows,
+               method = "ranger",
+               tuneGrid = rf.grid,
+               trControl = ctrl1,
+               metric = "ROC")
+
+ggplot(rf.fit, highlight = TRUE)
+```
+
+#### AdaBoost
+
+```{r}
+gbmA.grid = expand.grid(n.trees = c(1000,2000,3000,4000),
+                        interaction.depth = 1:6,
+                        shrinkage = c(0.0005,0.001,0.002),
+                        n.minobsinnode = 1)
+
+set.seed(1)
+
+ctrl2 = trainControl(method = "cv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+
+gbmA.fit = train(recovery_time ~ . ,
+                 dat_2,
+                 subset = trRows,
+                 tuneGrid = gbmA.grid,
+                 trControl = ctrl2,
+                 method = "gbm",
+                 distribution = "adaboost",
+                 metric = "ROC",
+                 verbose = FALSE)
+
+ggplot(gbmA.fit, highlight = TRUE)
+```
+
+*compare*
+```{r}
+rf.pred = predict(rf.fit, newdata = test_sec, type = "prob")[,1]
+gbmA.pred = predict(gbmA.fit, newdata = test_sec, type = "prob")[,1]
+
+roc.rf = roc(y2_sec, roc.pred)
+roc.gbmA = roc(y2_sec, gbmA.pred)
+
+auc = c(roc.rf$auc[1],roc.gbmA$auc[1])
+
+plot(roc.rf, col = 1)
+plot(roc.gbmA, col = 2, add = TRUE)
+
+modelNames = c("RF","Adaboost")
+legend("bottomright", legend = paste0(modelNames, ": ", round(auc,3)), col = 1:2, lwd = 2)
+```
+
+*Variable importance for random forests*
+```{r}
+# importance = permutation
+rf.final.per = ranger(recovery_time ~ . ,
+                      dat_2,
+                      subset = trRows,
+                      mtry = rf.fit$bestTune[[1]],
+                      min.node.size = rf.fit$bestTune[[3]],
+                      splitrule = "gini",
+                      importance = "permutation",
+                      scale.permutation.importance = TRUE)
+
+barplot(sort(ranger::importance(rf.final.per), decreasing = FALSE),
+        las = 2, horiz = TRUE, cex.names = 0.7,
+        col = colorRampPalette(colors = c("cyan","blue"))(8))
+```
+
+```{r}
+# importance = impurity
+rf.final.per = ranger(recovery_time ~ . ,
+                      dat_2,
+                      subset = trRows,
+                      mtry = rf.fit$bestTune[[1]],
+                      min.node.size = rf.fit$bestTune[[3]],
+                      splitrule = "gini",
+                      importance = "impurity")
+
+barplot(sort(ranger::importance(rf.final.per), decreasing = FALSE),
+        las = 2, horiz = TRUE, cex.names = 0.7,
+        col = colorRampPalette(colors = c("cyan","blue"))(8))
+```
+
+*Variable importance for AdaBoost*
+```{r}
+summary(gbmA.fit$finalModel, las = 2, cBars = 19, cex.names = 0.6)
+```
+
+#### svm
+
+```{r}
+ctrl3 = trainControl(method = "cv")
+
+set.seed(1)
+
+svml.fit = train(recovery_time ~ . ,
+                 dat_2,
+                 subset = trRows,
+                 method = "svmLinear",
+                 tuneGrid = data.frame(mincriterion = 1 - exp(seq(-2, -1, length = 50))),
+                  trControl = ctrl1,
+                  metric = "ROC")
+```
+
+
