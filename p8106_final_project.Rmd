@@ -125,6 +125,16 @@ y2_sec <- dat_2$recovery_time[-trRows]
 
 [Description check the report] 
 
+## Exploratory Analysis
+
+```{r Exploratory Analysis, warning=F, message=F}
+# Summary statistics for whole dataset:
+summary(dat)
+# Summary tables separated by continuous/categorical variables:
+skimr::skim(dat)
+```
+
+## Data Visualization
 
 ```{r}
 # For primary analysis: 
@@ -297,9 +307,289 @@ study_plot_sec = dat_2 %>%
 
 Note: Red is recovery time less than and equal to 30. Blue is greater than 30. 
 
+ctrl setting: 
+
+```{r}
+ctrl = trainControl(method = "repeatedcv", number = 10, repeats = 5)
+ctrl1 = trainControl(method = "repeatedcv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+```
+
 # Primary Analysis
 
 Recovery time as continuous variable. 
+
+## Linear methods: 
+
+### Linear model:
+
+```{r}
+set.seed(3521)
+# Fit a linear regression model:
+lm = train(recovery_time ~ age + gender + race + smoking + height + 
+                        weight + bmi + hypertension + diabetes + SBP + 
+                        LDL + vaccine + severity + study, 
+               data = training, ## use training dataset
+               method = "lm", 
+               trControl = ctrl)
+summary(lm)
+# Importances: 
+plot(varImp(lm, scale = TRUE), main = "Figure 2. Linear Model Variable's Importance Plot")
+
+# Report the CV error:
+lm$results$RMSE
+# Report the test error:
+lm_pred = predict(lm, newdata = test) ## Test dataset
+lm_mse = sqrt(mean((lm_pred - y2)^2))
+lm_mse
+```
+
+[Describe the outputs above]
+
+### LASSO model:
+
+```{r}
+set.seed(3521)
+# Fit a LASSO model:
+lasso = train(x = x, 
+              y = y, ## training dataset
+              method = "glmnet",
+              tuneGrid = expand.grid(alpha = 1,
+                                     lambda = exp(seq(-8, 1, length = 100))),
+              trControl = ctrl)
+# Plot for tuning parameter selection:
+plot(lasso, xTrans = log, main = "Figure 3. LASSO Model CV RMSE Plot", highlight = T)
+# Choose best tuning parameter value:
+lasso$bestTune
+# Report the coefficients after applying the best tuning parameter:
+coef(lasso$finalModel, lasso$bestTune$lambda)
+
+# Report the CV error:
+lasso$results[37, ]$RMSE
+# Report the test error:
+lasso_pred = predict(lasso, newdata = x2) ## Test dataset
+lasso_mse = sqrt(mean((lasso_pred - y2)^2))
+lasso_mse
+```
+
+[Describe the outputs above]
+
+### Ridge model:
+
+```{r}
+set.seed(3521)
+# Fit a ridge model:
+ridge = train(x = x, 
+              y = y, ## training dataset
+              method = "glmnet",
+              tuneGrid = expand.grid(alpha = 0,
+                                     lambda = exp(seq(-4, 1, length = 100))),
+              trControl = ctrl)
+# Plot for tuning parameter selection:
+plot(ridge, xTrans = log, main = "Figure 4. Ridge Model CV RMSE Plot", highlight = T)
+# Choose best tuning parameter value:
+ridge$bestTune
+# Report the coefficients after applying the best tuning parameter:
+coef(ridge$finalModel, ridge$bestTune$lambda)
+
+# Report the CV error:
+ridge$results[73, ]$RMSE
+# Report the test error:
+ridge_pred = predict(ridge, newdata = x2) ## Test dataset
+ridge_mse = sqrt(mean((ridge_pred - y2)^2))
+ridge_mse
+```
+
+[Describe the outputs above]
+
+### Elastic net model:
+
+```{r}
+set.seed(3521)
+# Fit a Elastic net model:
+enet = train(x, y, ## training dataset
+             method = "glmnet",
+             tuneGrid = expand.grid(alpha = seq(0, 1, length = 21),
+                                    lambda = exp(seq(-8, -2, length = 50))),
+             trControl = ctrl)
+# Plot for tuning parameters selection:
+myCol = rainbow(25)
+myPar = list(superpose.symbol = list(col = myCol),
+             superpose.line = list(col = myCol))
+plot(enet, par.settings = myPar, main = "Figure 5. Elastic Net Model CV RMSE Plot", xTrans = log)
+# Choose best tuning parameter value:
+enet$bestTune
+# Report the coefficients after applying the best tuning parameter:
+coef(enet$finalModel, enet$bestTune$lambda)
+
+# Report the CV error:
+enet$results[220, ]$RMSE
+# Report the test error:
+enet_pred = predict(enet, newdata = x2) ## Test dataset
+enet_mse = sqrt(mean((enet_pred - y2)^2))
+enet_mse
+```
+
+[Describe the outputs above]
+
+### Partial least squares model (PLS): 
+
+```{r}
+set.seed(3521)
+# Fit a PLS model:
+pls = train(x, y,  ## training dataset
+            method = "pls",
+            tuneGrid = data.frame(ncomp = 1:18),
+            trControl = ctrl,
+            preProcess = c("center", "scale"))
+summary(pls)
+# Choose best tuning parameter value:
+pls$bestTune
+# Plot for the number of components:
+ggplot(pls, highlight = T) + 
+  theme_bw() +
+  ggtitle("Figure 6. PLS Model CV RMSE Plot")
+
+# Report the CV error:
+pls$results[11, ]$RMSE
+# Report the test error:
+pls_pred = predict(pls, newdata = x2) ## Test dataset
+pls_mse = sqrt(mean((pls_pred - y2)^2))
+pls_mse
+```
+
+[Describe the outputs above]
+
+## Nonlinear Methods: 
+
+### Generalized additive model (GAM): 
+
+```{r}
+set.seed(3521)
+# Fit a GAM model for all predictors:
+gam = train(x, y, ## training dataset
+            method = "gam",
+            trControl = ctrl)
+summary(gam)
+# Report the model:
+gam$bestTune
+gam$finalModel
+# Plot for tuning parameter selection:
+plot(gam, main = "Figure 7. GAM Model CV RMSE Plot")
+
+# Report the CV error:
+gam$results$RMSE
+# Report the test error:
+gam_pred = predict(gam, newdata = x2) ## Test dataset
+gam_mse = sqrt(mean((gam_pred - y2)^2))
+gam_mse
+```
+
+[Describe the outputs above]
+
+### Multivariate adaptive regression spline (MARS) model
+
+```{r}
+set.seed(3521)
+# Create grid for two tuning parameters in MARS
+mars_grid = expand.grid(degree = 1:3,  ## number of possible product hinge functions
+                         nprune = 1:20) ##  the number of basis functions to be retained after the pruning process
+# Fit the MARS model:
+mars = train(x, y, # training dataset
+              method = "earth",
+              tuneGrid = mars_grid,
+              trControl = ctrl)
+# Report the coefficients:
+coef(mars$finalModel)
+# Plot for tuning parameter selection:
+ggplot(mars, highlight = T) + 
+  theme_bw() +
+  ggtitle("Figure 8. MARS Model CV RMSE Plot")
+# Choose best tuning parameter value:
+mars$bestTune
+
+# Report the CV error:
+mars$results[27, ]$RMSE
+# Report test error:
+mars_pred = predict(mars, newdata = x2) ## Test dataset
+mars_mse = sqrt(mean((mars_pred - y2)^2))
+mars_mse
+```
+
+[Describe the outputs above]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -307,7 +597,6 @@ Recovery time as continuous variable.
 
 # Secondary Analysis
 
-Create a new dataset with unify variables' name: 
 
 ```{r}
 
