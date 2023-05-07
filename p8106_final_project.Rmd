@@ -33,6 +33,10 @@ library(earth)
 library(AppliedPredictiveModeling)
 library(vip)
 library(patchwork)
+library(rpart.plot)
+library(rpart)
+library(ranger)
+library(gbm)
 ```
 
 
@@ -488,7 +492,7 @@ gam_mse
 
 [Describe the outputs above]
 
-### Multivariate adaptive regression spline (MARS) model
+### Multivariate adaptive regression spline (MARS) model:
 
 ```{r}
 set.seed(3521)
@@ -519,12 +523,79 @@ mars_mse
 
 [Describe the outputs above]
 
+### Regression Tree: 
 
+```{r}
+set.seed(3521)
+reg_tree = train(x, y, ## training dataset
+                 method = "rpart",
+                 tuneGrid = data.frame(cp = exp(seq(-6, -2, length = 50))),
+                 trControl = ctrl)
+# Plot the regression tree:
+rpart.plot(reg_tree$finalModel, main = "Figure 9.1. Regression Tree")
+# Plot for tuning parameter selection:
+ggplot(reg_tree, highlight = TRUE) + ggtitle("Figure 9.2 Regression Tree Model CV RMSE Plot")
+# Choose best tuning parameter value:
+reg_tree$bestTune
 
+# Report the CV error:
+reg_tree$results[12, ]$RMSE
+# Report test error:
+reg_tree_pred = predict(reg_tree, newdata = x2) ## Test dataset
+reg_tree_mse = sqrt(mean((reg_tree_pred - y2)^2))
+reg_tree_mse
+```
 
+[Describe the outputs above]
 
+### Random Forests: 
 
+```{r}
+set.seed(3521)
+rf.grid = expand.grid(mtry = 1:14, ## We have 14 predictors in training data in total
+                      splitrule = "variance",
+                      min.node.size = 1:6) ## large/small model flexibility
+set.seed(3521)
+rf = train(x, y,
+           method = "ranger",
+           tuneGrid = rf.grid,
+           trControl = ctrl)
+# Plot for tuning parameter selection:
+ggplot(rf, highlight = TRUE) + ggtitle("Figure 10. Random Forests CV RMSE Plot")
+# Choose best tuning parameter value:
+rf$bestTune
 
+# Report the CV error:
+rf$results[42, ]$RMSE
+# Report test error:
+rf_pred = predict(rf, newdata = x2) ## Test dataset
+rf_mse = sqrt(mean((rf_pred - y2)^2))
+rf_mse
+```
+
+[Describe the outputs above]
+
+### Boosting: 
+
+```{r}
+set.seed(3521)
+boosting.grid = expand.grid(n.trees = c(2000, 3000, 4000, 5000),
+                       interaction.depth = 1:3,
+                       shrinkage = c(0.001, 0.003),
+                       n.minobsinnode = 1)
+set.seed(3521)
+boosting = train(x, y,
+                method = "gbm",
+                tuneGrid = boosting.grid,
+                trControl = ctrl,
+                verbose = FALSE)
+# Plot for tuning parameter selection:
+ggplot(boosting, highlight = TRUE) + ggtitle("Figure 11. Boosting CV RMSE Plot")
+# Choose best tuning parameter value:
+boosting$bestTune
+```
+
+[Describe the outputs above]
 
 
 
