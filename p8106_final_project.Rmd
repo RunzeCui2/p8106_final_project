@@ -37,6 +37,9 @@ library(rpart.plot)
 library(rpart)
 library(ranger)
 library(gbm)
+library(parallel)
+library(doParallel)
+library(pROC)
 ```
 
 
@@ -311,13 +314,14 @@ study_plot_sec = dat_2 %>%
 
 Note: Red is recovery time less than and equal to 30. Blue is greater than 30. 
 
-ctrl setting: 
+ctrl and parallel computing setup:
 
 ```{r}
 ctrl = trainControl(method = "repeatedcv", number = 10, repeats = 5)
 ctrl1 = trainControl(method = "repeatedcv",
                      summaryFunction = twoClassSummary,
                      classProbs = TRUE)
+no_cores = detectCores() - 1
 ```
 
 # Primary Analysis
@@ -500,10 +504,15 @@ set.seed(3521)
 mars_grid = expand.grid(degree = 1:3,  ## number of possible product hinge functions
                          nprune = 1:20) ##  the number of basis functions to be retained after the pruning process
 # Fit the MARS model:
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
 mars = train(x, y, # training dataset
               method = "earth",
               tuneGrid = mars_grid,
               trControl = ctrl)
+stopCluster(cl)
+registerDoSEQ()
+
 # Report the coefficients:
 coef(mars$finalModel)
 # Plot for tuning parameter selection:
@@ -527,10 +536,15 @@ mars_mse
 
 ```{r}
 set.seed(3521)
+# Fit the regression tree model:
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
 reg_tree = train(x, y, ## training dataset
                  method = "rpart",
                  tuneGrid = data.frame(cp = exp(seq(-6, -2, length = 50))),
                  trControl = ctrl)
+stopCluster(cl)
+registerDoSEQ()
 # Plot the regression tree:
 rpart.plot(reg_tree$finalModel, main = "Figure 9.1. Regression Tree")
 # Plot for tuning parameter selection:
@@ -552,14 +566,19 @@ reg_tree_mse
 
 ```{r}
 set.seed(3521)
+# Fit the random forest model:
 rf.grid = expand.grid(mtry = 1:14, ## We have 14 predictors in training data in total
                       splitrule = "variance",
                       min.node.size = 1:6) ## large/small model flexibility
 set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
 rf = train(x, y,
            method = "ranger",
            tuneGrid = rf.grid,
            trControl = ctrl)
+stopCluster(cl)
+registerDoSEQ()
 # Plot for tuning parameter selection:
 ggplot(rf, highlight = TRUE) + ggtitle("Figure 10. Random Forests CV RMSE Plot")
 # Choose best tuning parameter value:
@@ -581,18 +600,30 @@ rf_mse
 set.seed(3521)
 boosting.grid = expand.grid(n.trees = c(2000, 3000, 4000, 5000),
                        interaction.depth = 1:3,
-                       shrinkage = c(0.001, 0.003),
+                       shrinkage = c(0.001, 0.003, 0.005),
                        n.minobsinnode = 1)
 set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
 boosting = train(x, y,
                 method = "gbm",
                 tuneGrid = boosting.grid,
                 trControl = ctrl,
                 verbose = FALSE)
+stopCluster(cl)
+registerDoSEQ()
+
 # Plot for tuning parameter selection:
 ggplot(boosting, highlight = TRUE) + ggtitle("Figure 11. Boosting CV RMSE Plot")
 # Choose best tuning parameter value:
 boosting$bestTune
+
+# Report the CV error:
+boosting$results[26, ]$RMSE
+# Report test error:
+boosting_pred = predict(boosting, newdata = x2) ## Test dataset
+boosting_mse = sqrt(mean((boosting_pred - y2)^2))
+boosting_mse
 ```
 
 [Describe the outputs above]
@@ -603,85 +634,150 @@ boosting$bestTune
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Secondary Analysis
 
+### Logistic Model: 
 
 ```{r}
-
-ctrl1 = trainControl(method = "repeatedcv",
-                     summaryFunction = twoClassSummary,
-                     classProbs = TRUE)
-
-ctrl = trainControl(method = "repeatedcv", number = 10, repeats = 5)
-
 set.seed(3521)
-# GLM fit
-glm = train(x = x_sec,
-            y = y_sec,
-            method = "glm", metric = "ROC", trControl = ctrl1)
+glm = train(recovery_time ~ ., 
+            data = training_sec,
+            method = "glm", 
+            metric = "ROC", 
+            trControl = ctrl1)
+glm$finalModel
 
+# Report the CV ROC:
+glm$results$ROC
 ```
+
+[Describe the outputs above]
+
+### Penalized Logistic Model: 
+
+```{r}
+set.seed(3521)
+glmnGrid = expand.grid(alpha = seq(0, 1, length = 18), 
+                       lambda = exp(seq(-8, -1, length = 50)))
+
+glmn = train(recovery_time ~ ., 
+             data = training_sec,
+             method = "glmnet", 
+             tuneGrid = glmnGrid, 
+             metric = "ROC",
+             trControl = ctrl1)
+# Plot for tuning parameter selection:
+myCol = rainbow(25)
+myPar = list(superpose.symbol = list(col = myCol),
+        superpose.line = list(col = myCol))
+plot(glmn, par.settings = myPar, xTran = function(x)log(x), highlight = T, main = "Figure I. Penalized Logistic Model CV ROC Plot")
+# Choose best tuning parameter value:
+glmn$bestTune
+
+# Report the CV ROC:
+glmn$results[851, ]$ROC
+```
+
+### GAM model for binary response:
+
+```{r}
+set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+gam_2 = train(recovery_time ~ ., 
+              data = training_sec,
+              method = "gam", 
+              metric = "ROC", 
+              trControl = ctrl1)
+stopCluster(cl)
+registerDoSEQ()
+# Plot for tuning parameter selection:
+plot(gam_2, main = "Figure II. GAM Model CV ROC Plot")
+# Report the final model: 
+gam_2$bestTune
+coef(gam_2$finalModel)
+
+# Report the CV ROC:
+gam_2$results[2, ]$ROC
+```
+
+### MARS model for binary response: 
+
+```{r}
+set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+mars_2 = train(recovery_time ~ ., 
+               data = training_sec,
+               method = "earth", 
+               tuneGrid = expand.grid(degree = 1:4, nprune = 2:14),
+               metric = "ROC", 
+               trControl = ctrl1)
+stopCluster(cl)
+registerDoSEQ()
+# Plot for tuning parameter selection:
+plot(mars_2, main = "Figure III. MARS Model CV ROC Plot", highlight = T)
+# Report the final model:
+mars_2$bestTune
+coef(mars_2$finalModel)
+
+# Report the CV ROC:
+mars_2$results[37, ]$ROC
+```
+
+### Linear discriminant analysis (LDA):
+
+```{r}
+set.seed(3521)
+lda = train(recovery_time ~ ., 
+            data = training_sec,
+            method = "lda",
+            metric = "ROC",
+            trControl = ctrl1)
+# Report the final model:
+coef(lda$finalModel)
+
+# Report the CV ROC:
+lda$results$ROC
+```
+
+### Quadratic discriminant analysis (QDA):
+
+```{r}
+set.seed(3521)
+qda = train(recovery_time ~ ., 
+            data = training_sec,
+            method = "qda",
+            metric = "ROC",
+            trControl = ctrl1)
+# Report the final model:
+qda$finalModel
+
+# Report the CV ROC:
+qda$results$ROC
+```
+
+### Naive Bayes: 
+
+```{r}
+set.seed(3521)
+nbGrid = expand.grid(usekernel = c(FALSE, TRUE),
+                     fL = 1,
+                     adjust = seq(.2, 3, by = .2))
+nb = train(recovery_time ~ ., 
+           data = training_sec, 
+           method = "nb",
+           tuneGrid = nbGrid,
+           metric = "ROC",
+           trControl = ctrl1)
+# Plot for tuning parameter selection:
+plot(nb, main = "Figure IV. NB Model CV ROC Plot", highlight = T)
+# Report the final model:
+nb$bestTune
+
+# Report the CV ROC:
+nb$results[26, ]$ROC
+```
+
+
 
