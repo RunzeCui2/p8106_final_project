@@ -81,6 +81,7 @@ set.seed(3521)
 # Specify rows of training data: 
 trRows <- createDataPartition(dat$recovery_time, p = 0.7, list = FALSE)
 
+
 # Training data:
 training <- dat[trRows, ]
 ## Covariates' matrix:
@@ -95,24 +96,27 @@ x2 <- model.matrix(recovery_time ~ ., dat)[-trRows, -1]
 ## Response's vector:
 y2 <- dat$recovery_time[-trRows]
 
+
+
+
 # For secondary analysis: 
-dat2 <- dat %>%
-  mutate(recovery_time = ifelse(recovery_time >= 30, 1, 0)) %>%
+dat_2 <- dat %>%
+  mutate(recovery_time = ifelse(recovery_time > 30, "great", "less")) %>%
   mutate(recovery_time = as.factor(recovery_time))
 
 # Training data:
-training_sec <- dat2[trRows, ]
+training_sec <- dat_2[trRows, ]
 ## Covariates' matrix:
-x_sec <- model.matrix(recovery_time ~ ., dat2)[trRows, -1]
+x_sec <- model.matrix(recovery_time ~ ., dat_2)[trRows, -1]
 ## Response's vector:
-y_sec <- dat2$recovery_time[trRows]
+y_sec <- dat_2$recovery_time[trRows]
 
 # Test data:
-test_sec <- dat2[-trRows, ]
+test_sec <- dat_2[-trRows, ]
 ## Covariates' matrix:
-x2_sec <- model.matrix(recovery_time ~ ., dat2)[-trRows, -1]
+x2_sec <- model.matrix(recovery_time ~ ., dat_2)[-trRows, -1]
 ## Response's vector:
-y2_sec <- dat2$recovery_time[-trRows]
+y2_sec <- dat_2$recovery_time[-trRows]
 ```
 
 
@@ -221,8 +225,8 @@ theme$plot.line$lwd = 2
 theme$strip.background$col = rgb(.0, .2, .6, .2)
 trellis.par.set(theme)
 
-featurePlot(x = dat2 %>% dplyr::select(age, height, weight, bmi, SBP, LDL), 
-            y = dat2$recovery_time,
+featurePlot(x = dat_2 %>% dplyr::select(age, height, weight, bmi, SBP, LDL), 
+            y = dat_2$recovery_time,
             plot = "box", pch = "|", 
             scales = list(x = list(relation = "free"),
                           y = list(relation = "free")),
@@ -231,56 +235,56 @@ featurePlot(x = dat2 %>% dplyr::select(age, height, weight, bmi, SBP, LDL),
             auto.key = list(columns = 2))
 
 ## For categorical variables: 
-gender_plot_sec = dat2 %>%
+gender_plot_sec = dat_2 %>%
   ggplot(aes(x = gender, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) + 
   scale_x_discrete(labels = c('Female','Male')) +
   ylab("Recovery") +
   theme(legend.position = "none")
 
-race_plot_sec = dat2 %>%
+race_plot_sec = dat_2 %>%
   ggplot(aes(x = race, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) + 
   scale_x_discrete(labels = c('White','Asian','Black', 'Hispanic')) +
   ylab("Recovery") +
   theme(legend.position = "none")
 
-smoking_plot_sec = dat2 %>%
+smoking_plot_sec = dat_2 %>%
   ggplot(aes(x = smoking, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) +
   scale_x_discrete(labels = c('Never smoked','Former smoker','Current smoker')) +
   ylab("Recovery") +
   theme(legend.position = "none")
 
-hyper_plot_sec = dat2 %>%
+hyper_plot_sec = dat_2 %>%
   ggplot(aes(x = hypertension, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) +
   ylab("Recovery") +
   scale_x_discrete(labels = c('No','Yes')) +
   theme(legend.position = "none")
 
-diabetes_plot_sec = dat2 %>%
+diabetes_plot_sec = dat_2 %>%
   ggplot(aes(x = diabetes, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) +
   scale_x_discrete(labels = c('No','Yes')) +
   ylab("Recovery") +
   theme(legend.position = "none")
 
-vac_plot_sec = dat2 %>%
+vac_plot_sec = dat_2 %>%
   ggplot(aes(x = vaccine, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) +
   scale_x_discrete(labels = c('Not vaccinated','Vaccinated')) +
   ylab("Recovery") +
   theme(legend.position = "none")
 
-severity_plot_sec = dat2 %>%
+severity_plot_sec = dat_2 %>%
   ggplot(aes(x = severity, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) +
   scale_x_discrete(labels = c('Not severe','Severe')) + 
   ylab("Recovery") +
   theme(legend.position = "none")
 
-study_plot_sec = dat2 %>%
+study_plot_sec = dat_2 %>%
   ggplot(aes(x = study, fill = recovery_time)) + 
   geom_bar(color = "black", alpha = .5) +
   ylab("Recovery") +
@@ -291,8 +295,33 @@ study_plot_sec = dat2 %>%
   plot_annotation(title = "Figure 1.5. Bar Plots for Categorical Variables in Secondary Analysis")
 ```
 
-Note: red is 0 and blue is 1. 
+Note: Red is recovery time less than and equal to 30. Blue is greater than 30. 
 
 # Primary Analysis
 
 Recovery time as continuous variable. 
+
+
+
+
+
+# Secondary Analysis
+
+Create a new dataset with unify variables' name: 
+
+```{r}
+
+ctrl1 = trainControl(method = "repeatedcv",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+
+ctrl = trainControl(method = "repeatedcv", number = 10, repeats = 5)
+
+set.seed(3521)
+# GLM fit
+glm = train(x = x_sec,
+            y = y_sec,
+            method = "glm", metric = "ROC", trControl = ctrl1)
+
+```
+
