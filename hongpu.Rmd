@@ -12,6 +12,7 @@ library(party)
 library(pROC)
 library(ranger)
 library(pdp)
+library(kernlab)
 ```
 
 ```{r}
@@ -242,9 +243,65 @@ svml.fit = train(recovery_time ~ . ,
                  dat_2,
                  subset = trRows,
                  method = "svmLinear",
-                 tuneGrid = data.frame(mincriterion = 1 - exp(seq(-2, -1, length = 50))),
-                  trControl = ctrl1,
-                  metric = "ROC")
+                 tuneGrid = data.frame(C = exp(seq(-5, 2, len = 50))),
+                 trControl = ctrl3)
+
+plot(svml.fit, highlight = TRUE, xTrans = log)
 ```
 
+```{r}
+svml.fit2 = train(recovery_time ~ . ,
+                 dat_2,
+                 subset = trRows,
+                 method = "svmLinear2",
+                 tuneGrid = data.frame(C = exp(seq(-5, 2, len = 50))),
+                 trControl = ctrl3)
 
+plot(svml.fit2, highlight = TRUE, xTrans = log)
+```
+
+```{r}
+svmr.grid = expand.grid(C = exp(seq(1, 7, len = 50)),
+                        sigma = exp(seq(-10, -2, len = 20)))
+
+# tunes over both cost and sigma
+svmr.fit = train(recovery_time ~ . ,
+                 dat_2,
+                 subset = trRows,
+                 method = "svmRadialSigma",
+                 tuneGrid = svmr.grid,
+                 trControl = ctrl3)
+
+myCol - rainbow(25)
+myPar - list(superpose.symbol = list(col = myCol),
+             superpose.line = list(col = myCol))
+
+plot(svmr.fit, highlight = TRUE, par.settings = myPar)
+```
+
+```{r}
+# tune over cost and use a single value of sigma base on kernlab's sigest function
+
+svmr.fit2 = train(recovery_time ~ . ,
+                 dat_2,
+                 subset = trRows,
+                 method = "svmRadialCost",
+                 tuneGrid = data.frame(C = exp(seq(-3, 3, len = 200))),
+                 trControl = ctrl3)
+```
+
+*test data performance*
+```{r}
+pred.svml = predict(svml.fit, newdata = test_sec)
+pred.svmr = predict(svmr.fit, newdata = test_sec)
+```
+
+```{r}
+confusionMatrix(data = pred.svml,
+                reference = y2_sec)
+```
+
+```{r}
+confusionMatrix(data = pred.svmr,
+                reference = y2_sec)
+```
