@@ -346,10 +346,6 @@ plot(varImp(lm, scale = TRUE), main = "Figure 2. Linear Model Variable's Importa
 
 # Report the CV error:
 lm$results$RMSE
-# Report the test error:
-lm_pred = predict(lm, newdata = test) ## Test dataset
-lm_mse = sqrt(mean((lm_pred - y2)^2))
-lm_mse
 ```
 
 [Describe the outputs above]
@@ -374,10 +370,6 @@ coef(lasso$finalModel, lasso$bestTune$lambda)
 
 # Report the CV error:
 lasso$results[37, ]$RMSE
-# Report the test error:
-lasso_pred = predict(lasso, newdata = x2) ## Test dataset
-lasso_mse = sqrt(mean((lasso_pred - y2)^2))
-lasso_mse
 ```
 
 [Describe the outputs above]
@@ -402,10 +394,6 @@ coef(ridge$finalModel, ridge$bestTune$lambda)
 
 # Report the CV error:
 ridge$results[73, ]$RMSE
-# Report the test error:
-ridge_pred = predict(ridge, newdata = x2) ## Test dataset
-ridge_mse = sqrt(mean((ridge_pred - y2)^2))
-ridge_mse
 ```
 
 [Describe the outputs above]
@@ -432,10 +420,6 @@ coef(enet$finalModel, enet$bestTune$lambda)
 
 # Report the CV error:
 enet$results[220, ]$RMSE
-# Report the test error:
-enet_pred = predict(enet, newdata = x2) ## Test dataset
-enet_mse = sqrt(mean((enet_pred - y2)^2))
-enet_mse
 ```
 
 [Describe the outputs above]
@@ -460,10 +444,6 @@ ggplot(pls, highlight = T) +
 
 # Report the CV error:
 pls$results[11, ]$RMSE
-# Report the test error:
-pls_pred = predict(pls, newdata = x2) ## Test dataset
-pls_mse = sqrt(mean((pls_pred - y2)^2))
-pls_mse
 ```
 
 [Describe the outputs above]
@@ -487,10 +467,6 @@ plot(gam, main = "Figure 7. GAM Model CV RMSE Plot")
 
 # Report the CV error:
 gam$results$RMSE
-# Report the test error:
-gam_pred = predict(gam, newdata = x2) ## Test dataset
-gam_mse = sqrt(mean((gam_pred - y2)^2))
-gam_mse
 ```
 
 [Describe the outputs above]
@@ -523,10 +499,6 @@ mars$bestTune
 
 # Report the CV error:
 mars$results[27, ]$RMSE
-# Report test error:
-mars_pred = predict(mars, newdata = x2) ## Test dataset
-mars_mse = sqrt(mean((mars_pred - y2)^2))
-mars_mse
 ```
 
 [Describe the outputs above]
@@ -553,10 +525,6 @@ reg_tree$bestTune
 
 # Report the CV error:
 reg_tree$results[12, ]$RMSE
-# Report test error:
-reg_tree_pred = predict(reg_tree, newdata = x2) ## Test dataset
-reg_tree_mse = sqrt(mean((reg_tree_pred - y2)^2))
-reg_tree_mse
 ```
 
 [Describe the outputs above]
@@ -585,10 +553,6 @@ rf$bestTune
 
 # Report the CV error:
 rf$results[42, ]$RMSE
-# Report test error:
-rf_pred = predict(rf, newdata = x2) ## Test dataset
-rf_mse = sqrt(mean((rf_pred - y2)^2))
-rf_mse
 ```
 
 [Describe the outputs above]
@@ -619,10 +583,6 @@ boosting$bestTune
 
 # Report the CV error:
 boosting$results[26, ]$RMSE
-# Report test error:
-boosting_pred = predict(boosting, newdata = x2) ## Test dataset
-boosting_mse = sqrt(mean((boosting_pred - y2)^2))
-boosting_mse
 ```
 
 [Describe the outputs above]
@@ -648,6 +608,10 @@ glm$finalModel
 
 # Report the CV ROC:
 glm$results$ROC
+# Report the training error rate: 
+glm.train = predict(glm, newdata = training_sec)
+glm_error = 1 - sum(y_sec == glm.train)/length(y_sec)
+sprintf("The training error rate for logistic model is %.3f", glm_error)
 ```
 
 [Describe the outputs above]
@@ -675,6 +639,10 @@ glmn$bestTune
 
 # Report the CV ROC:
 glmn$results[851, ]$ROC
+# Report the training error rate: 
+glmn.train = predict(glmn, newdata = training_sec)
+glmn_error = 1 - sum(y_sec == glmn.train)/length(y_sec)
+sprintf("The training error rate for penalized logistic model is %.3f", glmn_error)
 ```
 
 [Describe the outputs above]
@@ -700,6 +668,10 @@ coef(gam_2$finalModel)
 
 # Report the CV ROC:
 gam_2$results[2, ]$ROC
+# Report the training error rate: 
+gam_2.train = predict(gam_2, newdata = training_sec)
+gam_2_error = 1 - sum(y_sec == gam_2.train)/length(y_sec)
+sprintf("The training error rate for GAM model is %.3f", gam_2_error)
 ```
 
 [Describe the outputs above]
@@ -726,6 +698,10 @@ coef(mars_2$finalModel)
 
 # Report the CV ROC:
 mars_2$results[37, ]$ROC
+# Report the training error rate: 
+mars_2.train = predict(mars_2, newdata = training_sec)
+mars_2_error = 1 - sum(y_sec == mars_2.train)/length(y_sec)
+sprintf("The training error rate for MARS model is %.3f", mars_2_error)
 ```
 
 [Describe the outputs above]
@@ -744,6 +720,10 @@ coef(lda$finalModel)
 
 # Report the CV ROC:
 lda$results$ROC
+# Report the training error rate: 
+lda.train = predict(lda, newdata = training_sec)
+lda_error = 1 - sum(y_sec == lda.train)/length(y_sec)
+sprintf("The training error rate for LDA is %.3f", lda_error)
 ```
 
 [Describe the outputs above]
@@ -762,6 +742,10 @@ qda$finalModel
 
 # Report the CV ROC:
 qda$results$ROC
+# Report the training error rate: 
+qda.train = predict(qda, newdata = training_sec)
+qda_error = 1 - sum(y_sec == qda.train)/length(y_sec)
+sprintf("The training error rate for QDA model is %.3f", qda_error)
 ```
 
 [Describe the outputs above]
@@ -786,6 +770,10 @@ nb$bestTune
 
 # Report the CV ROC:
 nb$results[26, ]$ROC
+# Report the training error rate: 
+nb.train = predict(nb, newdata = training_sec)
+nb_error = 1 - sum(y_sec == nb.train)/length(y_sec)
+sprintf("The training error rate for Naive Bayes is %.3f", nb_error)
 ```
 
 [Describe the outputs above]
@@ -809,6 +797,10 @@ rpart$bestTune
 
 # Report the CV ROC
 rpart$results[17, ]$ROC
+# Report the training error rate: 
+rpart.train = predict(rpart, newdata = training_sec)
+rpart_error = 1 - sum(y_sec == rpart.train)/length(y_sec)
+sprintf("The training error rate for classfication tree is %.3f", rpart_error)
 ```
 
 [Describe the outputs above]
@@ -832,6 +824,10 @@ ctree$bestTune
 
 # Report the CV ROC
 ctree$results[20, ]$ROC
+# Report the training error rate: 
+ctree.train = predict(ctree, newdata = training_sec)
+ctree_error = 1 - sum(y_sec == ctree.train)/length(y_sec)
+sprintf("The training error rate for conditional inference tree is %.3f", ctree_error)
 ```
 
 [Describe the outputs above]
@@ -861,6 +857,10 @@ rf_2$bestTune
 
 # Report the CV ROC
 rf_2$results[6,]$ROC
+# Report the training error rate: 
+rf_2.train = predict(rf_2, newdata = training_sec)
+rf_2_error = 1 - sum(y_sec == rf_2.train)/length(y_sec)
+sprintf("The training error rate for random forests is %.3f", rf_2_error)
 ```
 
 [Describe the outputs above]
@@ -893,6 +893,10 @@ Adaboost$bestTune
 
 # Report the CV ROC:
 Adaboost$results[44,]$ROC
+# Report the training error rate: 
+Adaboost.train = predict(Adaboost, newdata = training_sec)
+Adaboost_error = 1 - sum(y_sec == Adaboost.train)/length(y_sec)
+sprintf("The training error rate for Adaboost is %.3f", Adaboost_error)
 ```
 
 [Describe the outputs above]
@@ -918,6 +922,10 @@ svml$bestTune
 
 # Report the CV ROC: 
 svml$results[22, ]$ROC
+# Report the training error rate: 
+svml.train = predict(svml, newdata = training_sec)
+svml_error = 1 - sum(y_sec == svml.train)/length(y_sec)
+sprintf("The training error rate for SVM(linear) is %.3f", svml_error)
 ```
 
 [Describe the outputs above]
@@ -942,8 +950,119 @@ myPar = list(superpose.symbol = list(col = myCol),
 plot(svmr, highlight = TRUE, par.settings = myPar, main = "Figure X. SVM(radical) Model CV ROC Plot")
 # Choose best tuning parameter value:
 svmr$bestTune
-# Report the ROC
+# Report the CV ROC
 svmr$results[85,]$ROC
+# Report the training error rate: 
+svmr.train = predict(svmr, newdata = training_sec)
+svmr_error = 1 - sum(y_sec == svmr.train)/length(y_sec)
+sprintf("The training error rate for SVM(radical) is %.3f", svmr_error)
 ```
 
 [Describe the outputs above]
+
+
+
+
+
+# Results: 
+
+## Model Comparison: 
+
+### For Primary Analysis: 
+
+```{r}
+set.seed(3521)
+# Resample all of the methods in primary analysis:
+resamp1 = resamples(list(
+  "Linear_model" = lm,
+  "LASSO" = lasso,
+  "Ridge" = ridge,
+  "Elastic_net" = enet,
+  "PLS" = pls,
+  "GAM" = gam,
+  "MARS" = mars,
+  "Regression_tree" = reg_tree,
+  "Random_forests" = rf,
+  "Boosting" = boosting
+  ))
+summary(resamp1)
+# RMSE plots for all models:
+bwplot(resamp1, 
+       metric = "RMSE",
+       main = "Figure 12. Primary Analysis: Model Comparison Plot Using RMSE")
+```
+
+### For Secondary Analysis: 
+
+```{r}
+set.seed(3521)
+# Resample all of the methods in secondary analysis:
+resamp2 = resamples(list(
+  "Logistic_model" = glm,
+  "Penalized_logistic_model" = glmn,
+  "GAM_binary" = gam_2,
+  "Mars_binary" = mars_2,
+  "LDA" = lda,
+  "QDA" = qda,
+  "Naive_bayes" = nb,
+  "Classification_tree" = rpart,
+  "Conditional_inference_tree" = ctree,
+  "Random_forest_binary" = rf_2,
+  "Adaboost" = Adaboost,
+  "SVM_linear" = svml,
+  "SVM_radical" = svmr
+  ))
+summary(resamp2)
+# RMSE plots for all models:
+bwplot(resamp2, 
+       metric = "ROC",
+       main = "Figure XI. Secondary Analysis: Model Comparison Plot Using ROC")
+```
+
+From the outputs, we choose random forests for primary analysis and GAM model for secondary analysis. 
+
+## Final model interpretation
+
+Primary analysis: (Random Forests)
+
+
+
+
+Secondary analysis: (GAM model)
+
+
+
+
+
+## Report the training and test performance
+
+Primary analysis: 
+
+```{r}
+# Cross validation error:
+rf$results[42, ]$RMSE
+# Test error: 
+rf_pred = predict(rf, newdata = x2)
+rf_mse = sqrt(mean((rf_pred - y2)^2))
+rf_mse
+```
+
+Secondary analysis: 
+
+```{r}
+# Training error rate:  
+gam_2.train = predict(gam_2, newdata = training_sec)
+gam_2_error = 1 - sum(y_sec == gam_2.train)/length(y_sec)
+gam_2_error
+# Test error rate:
+gam_2.test = predict(gam_2, newdata = test_sec)
+gam_2_error_t = 1 - sum(y2_sec == gam_2.test)/length(y2_sec)
+gam_2_error_t
+```
+
+
+# Conclusions: 
+
+[show it in the report]
+
+
