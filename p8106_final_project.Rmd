@@ -135,10 +135,9 @@ y2_sec <- dat_2$recovery_time[-trRows]
 ## Exploratory Analysis
 
 ```{r Exploratory Analysis, warning=F, message=F}
-# Summary statistics for whole dataset:
-summary(dat)
 # Summary tables separated by continuous/categorical variables:
 skimr::skim(dat)
+skimr::skim(dat2)
 ```
 
 ## Data Visualization
@@ -678,6 +677,8 @@ glmn$bestTune
 glmn$results[851, ]$ROC
 ```
 
+[Describe the outputs above]
+
 ### GAM model for binary response:
 
 ```{r}
@@ -700,6 +701,8 @@ coef(gam_2$finalModel)
 # Report the CV ROC:
 gam_2$results[2, ]$ROC
 ```
+
+[Describe the outputs above]
 
 ### MARS model for binary response: 
 
@@ -725,6 +728,8 @@ coef(mars_2$finalModel)
 mars_2$results[37, ]$ROC
 ```
 
+[Describe the outputs above]
+
 ### Linear discriminant analysis (LDA):
 
 ```{r}
@@ -741,6 +746,8 @@ coef(lda$finalModel)
 lda$results$ROC
 ```
 
+[Describe the outputs above]
+
 ### Quadratic discriminant analysis (QDA):
 
 ```{r}
@@ -756,6 +763,8 @@ qda$finalModel
 # Report the CV ROC:
 qda$results$ROC
 ```
+
+[Describe the outputs above]
 
 ### Naive Bayes: 
 
@@ -779,5 +788,162 @@ nb$bestTune
 nb$results[26, ]$ROC
 ```
 
+[Describe the outputs above]
 
+### Classfication tree: 
 
+```{r}
+set.seed(3521)
+rpart = train(recovery_time ~ . ,
+              data = training_sec,
+              method = "rpart",
+              tuneGrid = data.frame(cp = exp(seq(-6, -2, length = 50))),
+              trControl = ctrl1,
+              metric = "ROC")
+# Plot for classification tree: 
+rpart.plot(rpart$finalModel, main = "Figure V(I). Classification Tree")
+# Plot for tuning parameter selection: 
+ggplot(rpart, highlight = TRUE) + ggtitle("Figure V(II). Classification Tree Model CV ROC Plot")
+# Choose best tuning parameter value:
+rpart$bestTune
+
+# Report the CV ROC
+rpart$results[17, ]$ROC
+```
+
+[Describe the outputs above]
+
+### Conditional Inference Tree: 
+
+```{r}
+set.seed(3521)
+ctree = train(recovery_time ~ . ,
+                  data = training_sec,
+                  method = "ctree",
+                  tuneGrid = data.frame(mincriterion = 1 - exp(seq(-2, -1, length = 50))),
+                  trControl = ctrl1,
+                  metric = "ROC")
+# Plot for CIT: 
+plot(ctree$finalModel, main = ("Figure VI(I). Conditional Inference Tree"))
+# Plot for tuning parameter selection: 
+ggplot(ctree, highlight = T) + ggtitle("Figure VI(II). CIT Model CV ROC Plot")
+# Choose best tuning parameter value:
+ctree$bestTune
+
+# Report the CV ROC
+ctree$results[20, ]$ROC
+```
+
+[Describe the outputs above]
+
+### Random Forests for binary response: 
+
+```{r}
+rf.grid = expand.grid(mtry = 0:6,
+                      splitrule = "gini",
+                      min.node.size = seq(from = 2, to = 10, by = 2))
+set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+rf_2 = train(recovery_time ~ . ,
+             data = training_sec,
+             method = "ranger",
+             tuneGrid = rf.grid,
+             trControl = ctrl1,
+             metric = "ROC")
+stopCluster(cl)
+registerDoSEQ()
+
+# Plot for tuning parameter selection: 
+ggplot(rf_2, highlight = TRUE) + ggtitle("Figure VII. Random Forests Model CV ROC Plot")
+# Choose best tuning parameter value:
+rf_2$bestTune
+
+# Report the CV ROC
+rf_2$results[6,]$ROC
+```
+
+[Describe the outputs above]
+
+### Adaboost Model: 
+
+```{r}
+gbmA.grid = expand.grid(n.trees = c(1000, 2000, 3000, 4000),
+                        interaction.depth = 1:6,
+                        shrinkage = c(0.0005, 0.001, 0.0015),
+                        n.minobsinnode = 1)
+set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+Adaboost = train(recovery_time ~ . ,
+                 data = training_sec,
+                 tuneGrid = gbmA.grid,
+                 trControl = ctrl1,
+                 method = "gbm",
+                 distribution = "adaboost",
+                 metric = "ROC",
+                 verbose = FALSE)
+stopCluster(cl)
+registerDoSEQ()
+
+# Plot for tuning parameter selection:
+ggplot(Adaboost, highlight = TRUE) + ggtitle("Figure VIII. Adaboost Model CV ROC Plot")
+# Choose best tuning parameter value:
+Adaboost$bestTune
+
+# Report the CV ROC:
+Adaboost$results[44,]$ROC
+```
+
+[Describe the outputs above]
+
+### Support Vector Machine (linear kernel): 
+
+```{r}
+set.seed(3521)
+# kernlab 
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+svml = train(recovery_time ~ . ,
+             training_sec,
+             method = "svmLinear",
+             tuneGrid = data.frame(C = exp(seq(-5, 2, len = 50))),
+             trControl = ctrl1)
+stopCluster(cl)
+registerDoSEQ()
+# Plot for tuning parameter selection:
+plot(svml, highlight = TRUE, xTrans = log, main = ("Figure IX. SVM(linear) Model CV ROC Plot"))
+# Choose best tuning parameter value:
+svml$bestTune
+
+# Report the CV ROC: 
+svml$results[22, ]$ROC
+```
+
+[Describe the outputs above]
+
+### Support Vector Machine (radical kernel): 
+
+```{r}
+set.seed(3521)
+cl = makePSOCKcluster(no_cores)
+registerDoParallel(cl)
+svmr = train(recovery_time ~ . ,
+             training_sec,
+             method = "svmRadialCost",
+             tuneGrid = data.frame(C = exp(seq(-6, 0, len = 200))),
+             trControl = ctrl1)
+stopCluster(cl)
+registerDoSEQ()
+# Plot for tuning parameter selection:
+myCol = rainbow(25)
+myPar = list(superpose.symbol = list(col = myCol),
+             superpose.line = list(col = myCol))
+plot(svmr, highlight = TRUE, par.settings = myPar, main = "Figure X. SVM(radical) Model CV ROC Plot")
+# Choose best tuning parameter value:
+svmr$bestTune
+# Report the ROC
+svmr$results[85,]$ROC
+```
+
+[Describe the outputs above]
