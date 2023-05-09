@@ -1,0 +1,38 @@
+---
+title: "Project catalog"
+author: "Runze Cui (rc3521), Yuchen Hua (yh3555), Hongpu Min (hm2946)"
+date: "2023-05-01"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+  header-includes:
+   -\usepackage{fancyhdr}
+   -\usepackage{lipsum}
+   -\pagestyle{fancy}
+   -\fancyhead[R]{\thepage}
+   -\fancypagestyle{plain}{\pagestyle{fancy}}
+---
+
+\newpage
+
+## Data Introduction and Preprocessing
+
+## Exploratory Analysis and Data Visualization
+
+# Model Training
+
+## Primary Analysis
+
+## Secondary Analysis
+
+# Results
+
+# Conclusion
+
+# Appendix
+
+
