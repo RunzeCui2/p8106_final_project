@@ -40,6 +40,8 @@ library(gbm)
 library(parallel)
 library(doParallel)
 library(pROC)
+library(ranger)
+library(pdp)
 ```
 
 
@@ -134,10 +136,10 @@ y2_sec <- dat_2$recovery_time[-trRows]
 
 ## Exploratory Analysis
 
-```{r Exploratory Analysis, warning=F, message=F}
+```{r}
 # Summary tables separated by continuous/categorical variables:
 skimr::skim(dat)
-skimr::skim(dat2)
+skimr::skim(dat_2)
 ```
 
 ## Data Visualization
@@ -621,7 +623,7 @@ sprintf("The training error rate for logistic model is %.3f", glm_error)
 ```{r}
 set.seed(3521)
 glmnGrid = expand.grid(alpha = seq(0, 1, length = 18), 
-                       lambda = exp(seq(-8, -1, length = 50)))
+                       lambda = exp(seq(-15, -5, length = 50)))
 
 glmn = train(recovery_time ~ ., 
              data = training_sec,
@@ -1023,20 +1025,118 @@ From the outputs, we choose random forests for primary analysis and GAM model fo
 
 ## Final model interpretation
 
-Primary analysis: (Random Forests)
+### Primary analysis: (Random Forests)
+
+Extract the variable importance: 
+
+```{r}
+# Permutation: 
+set.seed(3521)
+rf.per = ranger(recovery_time ~ ., 
+                data = training,
+                mtry = rf$bestTune[[1]],
+                splitrule = "variance",
+                min.node.size = rf$bestTune[[3]],
+                importance = "permutation",
+                scale.permutation.importance = TRUE)
+barplot(sort(importance(rf.per), decreasing = FALSE), 
+        las = 2, horiz = TRUE, cex.names = 0.7, 
+        col = colorRampPalette(colors = c("cyan", "blue"))(19),
+        main = "Figure 10.1. Variable Importance by OOB permutation")
+
+# Impurity: 
+set.seed(3521)
+rf.imp = ranger(recovery_time ~ ., 
+                data = training,
+                mtry = rf$bestTune[[1]],
+                splitrule = "variance",
+                min.node.size = rf$bestTune[[3]],
+                importance = "impurity")
+barplot(sort(importance(rf.imp), decreasing = FALSE), 
+        las = 2, horiz = TRUE, cex.names = 0.7, 
+        col = colorRampPalette(colors = c("cyan", "blue"))(19),
+        main = "Figure 10.2. Variable Importance by Node Impurities")
+```
+
+Partial dependence plots: 
+
+```{r}
+p1 = partial(rf, pred.var = "bmi",
+     plot = TRUE, rug = TRUE,
+     plot.engine = "ggplot")
+p2 = partial(rf, pred.var = "weight",
+     plot = TRUE, rug = TRUE,
+     plot.engine = "ggplot")
+p3 = partial(rf, pred.var = "height",
+     plot = TRUE, rug = TRUE,
+     plot.engine = "ggplot")
+p4 = rf %>% 
+     partial(pred.var = c("bmi", "weight"), chull = TRUE) %>% 
+     autoplot(train = training, rug = TRUE)
+p5 = rf %>% 
+     partial(pred.var = c("bmi", "height"), chull = TRUE) %>% 
+     autoplot(train = training, rug = TRUE)
+p6 = rf %>% 
+     partial(pred.var = c("height", "weight"), chull = TRUE) %>% 
+     autoplot(train = training, rug = TRUE)
+grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3, top = "Figure 10.3. Random Forests' PDPs for Important Variables")
+
+```
+
+Individual conditional expectation curves (ICE): 
+
+```{r}
+ice1 = rf %>% 
+  partial(pred.var = "bmi",
+          grid.resolution = 100, 
+          ice = TRUE) %>% 
+  autoplot(train = rf, alpha = 0.1) + ggtitle("ICE for BMI (not centered)")
+ice2 = rf %>% 
+  partial(pred.var = "bmi",
+          grid.resolution = 100, 
+          ice = TRUE) %>% 
+  autoplot(train = rf, alpha = 0.1, center = TRUE) + ggtitle("ICE for BMI (centered)")
+ice3 = rf %>% 
+  partial(pred.var = "weight",
+          grid.resolution = 100, 
+          ice = TRUE) %>% 
+  autoplot(train = rf, alpha = 0.1) + ggtitle("ICE for Weight (not centered)")
+ice4 = rf %>% 
+  partial(pred.var = "weight",
+          grid.resolution = 100, 
+          ice = TRUE) %>% 
+  autoplot(train = rf, alpha = 0.1, center = TRUE) + ggtitle("ICE for Weight (centered)")
+ice5 = rf %>% 
+  partial(pred.var = "height",
+          grid.resolution = 100, 
+          ice = TRUE) %>% 
+  autoplot(train = rf, alpha = 0.1) + ggtitle("ICE for Height (not centered)")
+ice6 = rf %>% 
+  partial(pred.var = "height",
+          grid.resolution = 100, 
+          ice = TRUE) %>% 
+  autoplot(train = rf, alpha = 0.1, center = TRUE) + ggtitle("ICE for Height (centered)")
+
+grid.arrange(ice1, ice2, ice3, ice4, ice5, ice6, nrow = 3, top = "Figure 10.4. ICE for Importance Variables")
+```
 
 
+### Secondary analysis: (GAM model)
 
+```{r}
+gam_2$finalModel
+```
 
-Secondary analysis: (GAM model)
-
-
-
+```{r}
+par(mfrow = c(3, 2))
+plot(gam_2$finalModel)
+mtext("Figure II(I). GAM Model Spline Term Plots", side = 3, line = -3, outer = TRUE)
+```
 
 
 ## Report the training and test performance
 
-Primary analysis: 
+### Primary analysis: 
 
 ```{r}
 # Cross validation error:
@@ -1047,7 +1147,7 @@ rf_mse = sqrt(mean((rf_pred - y2)^2))
 rf_mse
 ```
 
-Secondary analysis: 
+### Secondary analysis: 
 
 ```{r}
 # Training error rate:  
