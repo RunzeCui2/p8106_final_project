@@ -1,0 +1,301 @@
+---
+title: 'P8106 Final Project: Predicting COVID-19 Recovery Time and Identifying Significant Risk Factors'
+author: "Runze Cui (rc3521), Yuchen Hua (yh3555), Hongpu Min (hm2946)"
+date: "2023-05-01"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+  header-includes:
+   -\usepackage{fancyhdr}
+   -\usepackage{lipsum}
+   -\pagestyle{fancy}
+   -\fancyhead[R]{\thepage}
+   -\fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+\newpage
+
+```{r include=F}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, message = FALSE, warning = FALSE, dpi = 300, fig.width = 7)
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(mgcv)
+library(earth)
+library(AppliedPredictiveModeling)
+library(vip)
+library(patchwork)
+library(rpart.plot)
+library(rpart)
+library(ranger)
+library(gbm)
+library(parallel)
+library(doParallel)
+library(pROC)
+library(ranger)
+library(pdp)
+library(knitr)
+```
+
+## Data Introduction and Preprocessing
+
+```{r include=F}
+# For primary analysis: 
+# Dataset Loading:
+load("data/recovery.Rdata")
+
+set.seed(3521) # Runze Cui's uni(2183): 
+# Create a first random sample of 2000 participants: 
+dat1 <- dat[sample(1:10000, 2000),] 
+
+set.seed(3555) # Yuchen Hua's uni(3555)
+# Create a second random sample of 2000 participants: 
+dat2 <- dat[sample(1:10000, 2000),] 
+
+# Merged the two datasets and remove repeated observations: 
+dat <- unique(rbind(dat1, dat2))
+
+# Get rid of the id variable from the merged dataset and do the data cleaning: 
+dat <- dat %>% 
+  select(-id) %>% 
+  mutate(gender = as.factor(gender)) %>% 
+  mutate(race = as.factor(race)) %>% 
+  mutate(smoking = as.factor(smoking)) %>% 
+  mutate(hypertension = as.factor(hypertension)) %>% 
+  mutate(diabetes = as.factor(diabetes)) %>% 
+  mutate(vaccine = as.factor(vaccine)) %>% 
+  mutate(severity = as.factor(severity)) %>% 
+  mutate(study = as.factor(study)) %>% 
+  na.omit() %>% 
+  relocate(recovery_time)
+
+head(dat)
+
+# Separate the data as training and test data: 
+set.seed(3521)
+# Specify rows of training data: 
+trRows <- createDataPartition(dat$recovery_time, p = 0.7, list = FALSE)
+
+
+# Training data:
+training <- dat[trRows, ]
+## Covariates' matrix:
+x <- model.matrix(recovery_time ~ ., dat)[trRows, -1]
+## Response's vector:
+y <- dat$recovery_time[trRows]
+
+# Test data:
+test <- dat[-trRows, ]
+## Covariates' matrix:
+x2 <- model.matrix(recovery_time ~ ., dat)[-trRows, -1]
+## Response's vector:
+y2 <- dat$recovery_time[-trRows]
+
+
+
+
+# For secondary analysis: 
+dat_2 <- dat %>%
+  mutate(recovery_time = ifelse(recovery_time > 30, "great", "less")) %>%
+  mutate(recovery_time = as.factor(recovery_time))
+
+# Training data:
+training_sec <- dat_2[trRows, ]
+## Covariates' matrix:
+x_sec <- model.matrix(recovery_time ~ ., dat_2)[trRows, -1]
+## Response's vector:
+y_sec <- dat_2$recovery_time[trRows]
+
+# Test data:
+test_sec <- dat_2[-trRows, ]
+## Covariates' matrix:
+x2_sec <- model.matrix(recovery_time ~ ., dat_2)[-trRows, -1]
+## Response's vector:
+y2_sec <- dat_2$recovery_time[-trRows]
+```
+
+To gain a better understanding of the factors that predict recovery time from COVID-19 illness, this study was designed to combine three existing cohort studies that have been tracking participants for several years. The ultimate goal is to develop two models (the regression model in **Primary analysis** and classification model in **Secondary analysis**) for predict COVID-19 recovery time of patients and identify important risk factors. The dataset (`recovery.RData`) contains basic demographic characteristics, multiple subject's information about COVID-19 such as severity of infection and COVID-19 recovery time. Also, the dataset provides several biomarkers, vital measurements and disease status such as height, weight, BMI, hypertension, diabetes, systolic blood pressure and LDL cholesterol. In general, the study's outcome is the subject's COVID-19 recovery time and 14 predictor variables are included (details check **Table 1**). Particularly, in **Secondary analysis**, our continuous response COVID-19 recovery time is converted into binary response (greater than 30 days as `great` and less than and equal to 30 days as `less` in dataset `dat_2`). Specifically, there are 8 categorical predictors, 6 continuous predictors and 1 binary response variable (details check **Table 2**). The `recovery.RData` document consists of data on 10,000 participants. A random sample of 3,587 participants was used for data analysis, and the sample size are partitioned as two parts (training data: 70%, test data: 30%).
+
+## Exploratory Analysis and Data Visualization
+
+The primary and secondary analyses share the same continuous and categorical variables and are visualized as the following scatter and violin plots below (**Figure 1.1**, **Figure 1.2**). 
+
+
+
+
+
+\newpage
+# Appendix
+
+**Table 1**
+
+```{r echo = FALSE, results = TRUE}
+# Summary tables separated by continuous/categorical variables:
+skimr::skim(dat)
+```
+
+**Table 2**
+
+```{r echo = FALSE, results = TRUE}
+# Summary tables separated by continuous/categorical variables:
+skimr::skim(dat_2)
+```
+
+
+
+```{r echo = FALSE, results = TRUE}
+# For primary analysis: 
+## For categorical variables: 
+gender_plot = dat %>%
+  ggplot(aes(x = gender, y = recovery_time, fill = gender)) + 
+  geom_violin(color = "black", alpha = .5) + 
+  scale_x_discrete(labels = c('Female','Male')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+race_plot = dat %>%
+  ggplot(aes(x = race, y = recovery_time, fill = race)) + 
+  geom_violin(color = "black", alpha = .5) + 
+  scale_x_discrete(labels = c('White','Asian','Black', 'Hispanic')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+smoking_plot = dat %>%
+  ggplot(aes(x = smoking, y = recovery_time, fill = smoking)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Never smoked','Former smoker','Current smoker')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+hyper_plot = dat %>%
+  ggplot(aes(x = hypertension, y = recovery_time, fill = hypertension)) + 
+  geom_violin(color = "black", alpha = .5) +
+  ylab("Recovery") +
+  scale_x_discrete(labels = c('No','Yes')) +
+  theme(legend.position = "none")
+
+diabetes_plot = dat %>%
+  ggplot(aes(x = diabetes, y = recovery_time, fill = diabetes)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('No','Yes')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+vac_plot = dat %>%
+  ggplot(aes(x = vaccine, y = recovery_time, fill = vaccine)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Not vaccinated','Vaccinated')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+severity_plot = dat %>%
+  ggplot(aes(x = severity, y = recovery_time, fill = severity)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Not severe','Severe')) + 
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+study_plot = dat %>%
+  ggplot(aes(x = study, y = recovery_time, fill = study)) + 
+  geom_violin(color = "black", alpha = .5) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+(gender_plot + race_plot + smoking_plot + hyper_plot) / (diabetes_plot + vac_plot + severity_plot + study_plot) + 
+  plot_layout(guides = "collect") + 
+  plot_annotation(title = "Figure 1.2. Violin Plots for Categorical Variables in Primary Analysis")
+
+## Correlation matrix for continuous variables ONLY: 
+model.matrix( ~ 0+., data = dat %>% dplyr::select(age, height, weight, bmi, SBP, LDL)) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  ggcorrplot::ggcorrplot(show.diag = T, 
+                         type = "lower", 
+                         lab = F,
+                         colors = c("#6D9EC1", "white", "#E46726")) + 
+  ggtitle("Figure 1.3. Correlation matrix for continuous datasat")
+
+
+# For secondary analysis: 
+## For continuous variables: 
+theme = trellis.par.get()
+theme$plot.symbol$col = rgb(.2, .4, .2, .5)
+theme$plot.symbol$pch = 16
+theme$plot.line$col = rgb(.8, .1, .1, 1)
+theme$plot.line$lwd = 2
+theme$strip.background$col = rgb(.0, .2, .6, .2)
+trellis.par.set(theme)
+
+featurePlot(x = dat_2 %>% dplyr::select(age, height, weight, bmi, SBP, LDL), 
+            y = dat_2$recovery_time,
+            plot = "box", pch = "|", 
+            scales = list(x = list(relation = "free"),
+                          y = list(relation = "free")),
+            labels = c("Predictors","Y"),
+            main = "Figure 1.4. Lattice Plots for Continuous Variables in Secondary Analysis", 
+            auto.key = list(columns = 2))
+
+## For categorical variables: 
+gender_plot_sec = dat_2 %>%
+  ggplot(aes(x = gender, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) + 
+  scale_x_discrete(labels = c('Female','Male')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+race_plot_sec = dat_2 %>%
+  ggplot(aes(x = race, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) + 
+  scale_x_discrete(labels = c('White','Asian','Black', 'Hispanic')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+smoking_plot_sec = dat_2 %>%
+  ggplot(aes(x = smoking, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Never smoked','Former smoker','Current smoker')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+hyper_plot_sec = dat_2 %>%
+  ggplot(aes(x = hypertension, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) +
+  ylab("Recovery") +
+  scale_x_discrete(labels = c('No','Yes')) +
+  theme(legend.position = "none")
+
+diabetes_plot_sec = dat_2 %>%
+  ggplot(aes(x = diabetes, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('No','Yes')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+vac_plot_sec = dat_2 %>%
+  ggplot(aes(x = vaccine, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Not vaccinated','Vaccinated')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+severity_plot_sec = dat_2 %>%
+  ggplot(aes(x = severity, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Not severe','Severe')) + 
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+study_plot_sec = dat_2 %>%
+  ggplot(aes(x = study, fill = recovery_time)) + 
+  geom_bar(color = "black", alpha = .5) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+(gender_plot_sec + race_plot_sec + smoking_plot_sec + hyper_plot_sec) / (diabetes_plot_sec + vac_plot_sec + severity_plot_sec + study_plot_sec) + 
+  plot_layout(guides = "collect") + 
+  plot_annotation(title = "Figure 1.5. Bar Plots for Categorical Variables in Secondary Analysis")
+```
+
