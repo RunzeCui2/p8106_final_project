@@ -3,6 +3,7 @@ title: 'P8106 Final Project: Predicting COVID-19 Recovery Time and Identifying S
 author: "Runze Cui (rc3521), Yuchen Hua (yh3555), Hongpu Min (hm2946)"
 date: "2023-05-01"
 output: 
+  html_document:
   pdf_document:
     latex_engine: xelatex
     toc: yes
@@ -297,5 +298,67 @@ study_plot_sec = dat_2 %>%
 (gender_plot_sec + race_plot_sec + smoking_plot_sec + hyper_plot_sec) / (diabetes_plot_sec + vac_plot_sec + severity_plot_sec + study_plot_sec) + 
   plot_layout(guides = "collect") + 
   plot_annotation(title = "Figure 1.5. Bar Plots for Categorical Variables in Secondary Analysis")
+```
+
+```{r fig.width=10, fig.height = 20}
+gender_plot = dat %>%
+  ggplot(aes(x = gender, y = recovery_time, fill = gender)) + 
+  geom_violin(color = "black", alpha = .5) + 
+  scale_x_discrete(labels = c('Female','Male')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+race_plot = dat %>%
+  ggplot(aes(x = race, y = recovery_time, fill = race)) + 
+  geom_violin(color = "black", alpha = .5) + 
+  scale_x_discrete(labels = c('White','Asian','Black', 'Hispanic')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+smoking_plot = dat %>%
+  ggplot(aes(x = smoking, y = recovery_time, fill = smoking)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Never smoked','Former smoker','Current smoker')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+hyper_plot = dat %>%
+  ggplot(aes(x = hypertension, y = recovery_time, fill = hypertension)) + 
+  geom_violin(color = "black", alpha = .5) +
+  ylab("Recovery") +
+  scale_x_discrete(labels = c('No','Yes')) +
+  theme(legend.position = "none")
+
+diabetes_plot = dat %>%
+  ggplot(aes(x = diabetes, y = recovery_time, fill = diabetes)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('No','Yes')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+vac_plot = dat %>%
+  ggplot(aes(x = vaccine, y = recovery_time, fill = vaccine)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Not vaccinated','Vaccinated')) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+severity_plot = dat %>%
+  ggplot(aes(x = severity, y = recovery_time, fill = severity)) + 
+  geom_violin(color = "black", alpha = .5) +
+  scale_x_discrete(labels = c('Not severe','Severe')) + 
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+study_plot = dat %>%
+  ggplot(aes(x = study, y = recovery_time, fill = study)) + 
+  geom_violin(color = "black", alpha = .5) +
+  ylab("Recovery") +
+  theme(legend.position = "none")
+
+(gender_plot + race_plot + smoking_plot + hyper_plot) / (diabetes_plot + vac_plot + severity_plot + study_plot) + 
+  plot_layout(guides = "collect") + 
+  plot_annotation(title = "Figure 1.2. Violin Plots for Categorical Variables in Primary Analysis")
+
 ```
 
